@@ -1,0 +1,171 @@
+import AppKit
+import Carbon
+import SwiftUI
+
+final class LauncherPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    let store = WindowStore()
+    private var panel: LauncherPanel!
+    private var status: NSStatusItem!
+    private var hotKey: EventHotKeyRef?
+    private var hotKeyHandler: EventHandlerRef?
+    private var keyboardMonitor: Any?
+    private var previousApp: NSRunningApplication?
+    private var hotKeyFailure: String?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+        // Standard responder-chain edit commands are required even for a menu-bar app.
+        let mainMenu = NSMenu()
+        let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = editMenu
+        mainMenu.addItem(editItem)
+        NSApp.mainMenu = mainMenu
+        panel = LauncherPanel(contentRect: NSRect(x: 0, y: 0, width: 960, height: 680),
+                              styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.isFloatingPanel = true
+        panel.level = .floating
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isReleasedWhenClosed = false
+        panel.isMovableByWindowBackground = true
+        panel.hasShadow = true
+        panel.backgroundColor = .clear
+        panel.contentView = NSHostingView(rootView: LauncherView(store: store))
+        panel.contentView?.wantsLayer = true
+        panel.contentView?.layer?.cornerRadius = 18
+        panel.contentView?.layer?.masksToBounds = true
+        panel.delegate = self
+        store.dismiss = { [weak self] in self?.hide(restore: false) }
+
+        status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        status.button?.image = NSImage(systemSymbolName: "rectangle.3.group", accessibilityDescription: "WindowPilot")
+        let menu = NSMenu()
+        menu.addItem(withTitle: "搜索窗口  ⌘D", action: #selector(toggle), keyEquivalent: "")
+        menu.addItem(withTitle: "打开辅助功能设置", action: #selector(accessibilitySettings), keyEquivalent: "")
+        menu.addItem(withTitle: "打开屏幕录制设置", action: #selector(screenSettings), keyEquivalent: "")
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "退出 WindowPilot", action: #selector(quit), keyEquivalent: "q")
+        menu.items.forEach { $0.target = self }
+        status.menu = menu
+
+        registerHotKey()
+        keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.panel.isVisible, self.panel.isKeyWindow else { return event }
+            return self.handle(event) ? nil : event
+        }
+        show()
+    }
+
+    private func registerHotKey() {
+        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        let pointer = Unmanaged.passUnretained(self).toOpaque()
+        InstallEventHandler(GetApplicationEventTarget(), { _, _, context in
+            guard let context else { return OSStatus(eventNotHandledErr) }
+            MainActor.assumeIsolated {
+                Unmanaged<AppDelegate>.fromOpaque(context).takeUnretainedValue().toggle()
+            }
+            return noErr
+        }, 1, &spec, pointer, &hotKeyHandler)
+        let id = EventHotKeyID(signature: 0x57504C54, id: 1)
+        let result = RegisterEventHotKey(UInt32(kVK_ANSI_D), UInt32(cmdKey), id, GetApplicationEventTarget(), 0, &hotKey)
+        if result != noErr { hotKeyFailure = "⌘D 注册失败（\(result)），请从菜单栏打开，或关闭占用此快捷键的工具。" }
+    }
+
+    @objc func toggle() { panel.isVisible ? hide(restore: true) : show() }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !panel.isVisible { show() }
+        return true
+    }
+
+    private func show() {
+        previousApp = NSWorkspace.shared.frontmostApplication
+        store.query = ""
+        store.navigating = false
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main
+        if let frame = screen?.visibleFrame {
+            let width = min(960, frame.width - 32)
+            let height = min(680, frame.height - 32)
+            panel.setFrame(NSRect(x: frame.midX - width / 2, y: frame.midY - height / 2, width: width, height: height), display: false)
+        }
+        store.refresh()
+        if let hotKeyFailure { store.message = hotKeyFailure }
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+        NotificationCenter.default.post(name: .launcherDidOpen, object: nil)
+    }
+
+    private func hide(restore: Bool) {
+        panel.orderOut(nil)
+        store.stopCapture()
+        if restore { previousApp?.activate(options: []) }
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        guard panel.isVisible else { return }
+        hide(restore: false)
+    }
+
+    private func handle(_ event: NSEvent) -> Bool {
+        // Candidate navigation and Return belong to the input method while composing text.
+        if !store.navigating, let editor = panel.firstResponder as? NSTextView, editor.hasMarkedText() { return false }
+        if event.keyCode == 53 { hide(restore: true); return true }
+        if event.modifierFlags.contains(.command) {
+            if event.charactersIgnoringModifiers?.lowercased() == "r" { store.refresh(); return true }
+            return false
+        }
+        if event.modifierFlags.contains(.control) || event.modifierFlags.contains(.option) { return false }
+        switch event.keyCode {
+        case 48: store.navigating.toggle(); return true
+        case 123: store.move(dx: -1, dy: 0); return true
+        case 124: store.move(dx: 1, dy: 0); return true
+        case 125: store.move(dx: 0, dy: 1); return true
+        case 126: store.move(dx: 0, dy: -1); return true
+        case 36, 76: store.selectCurrent(); return true
+        default: break
+        }
+        guard store.navigating else { return false }
+        switch event.charactersIgnoringModifiers?.lowercased() {
+        case "h": store.move(dx: -1, dy: 0)
+        case "j": store.move(dx: 0, dy: 1)
+        case "k": store.move(dx: 0, dy: -1)
+        case "l": store.move(dx: 1, dy: 0)
+        case "/", "i": store.navigating = false
+        default: break
+        }
+        return true
+    }
+
+    @objc private func accessibilitySettings() { store.openPermission(false) }
+    @objc private func screenSettings() { store.openPermission(true) }
+    @objc private func quit() { NSApp.terminate(nil) }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        if let hotKey { UnregisterEventHotKey(hotKey) }
+        if let hotKeyHandler { RemoveEventHandler(hotKeyHandler) }
+        if let keyboardMonitor { NSEvent.removeMonitor(keyboardMonitor) }
+    }
+}
+
+@main
+enum WindowPilotMain {
+    @MainActor static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        withExtendedLifetime(delegate) { app.run() }
+    }
+}

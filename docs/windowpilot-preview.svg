@@ -1,0 +1,233 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="758" viewBox="0 0 1120 758" role="img" aria-labelledby="title desc">
+<title id="title">WindowPilot 窗口搜索界面示意</title>
+<desc id="desc">深色搜索框下展示六个虚构 VS Code 项目的窗口预览，支持 hjkl 选择和 Enter 切换。</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#152a25"/><stop offset="1" stop-color="#0b1115"/></linearGradient></defs>
+<rect width="1120" height="758" rx="24" fill="url(#bg)"/>
+<rect x="28" y="28" width="1064" height="702" rx="20" fill="#111919" stroke="#2b4039"/>
+<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<g stroke="#96dfb2" stroke-width="2.5" fill="none"><rect x="57" y="56" width="16" height="24" rx="3"/><rect x="80" y="56" width="20" height="12" rx="3"/><rect x="80" y="74" width="20" height="15" rx="3"/></g>
+<text x="114" y="79" fill="#eff4f1" font-size="22" font-weight="650">WindowPilot</text>
+<rect x="927" y="54" width="133" height="32" rx="16" fill="#213a30"/><text x="993" y="75" text-anchor="middle" fill="#9de0b6" font-size="13">VIM NAVIGATION</text>
+<rect x="53" y="108" width="1014" height="70" rx="12" fill="#1b2724" stroke="#83bb9d"/>
+<circle cx="82" cy="141" r="8" fill="none" stroke="#9de0b6" stroke-width="2"/><path d="m88 147 7 7" stroke="#9de0b6" stroke-width="2"/>
+<text x="113" y="153" font-size="28" fill="#edf3ef">vscode</text><text x="1004" y="151" font-size="17" fill="#91a49a">⌘ D</text>
+<text x="55" y="210" font-size="13" fill="#a9bcb1">WINDOWS</text><text x="134" y="210" font-size="13" fill="#9de0b6">6</text><text x="1065" y="210" font-size="12" fill="#81998b" text-anchor="end">LOCAL PREVIEWS · EXAMPLE PROJECTS</text>
+<g transform="translate(54 230)"><rect width="323" height="200" rx="11" fill="#192422" stroke="#31413b" stroke-width="1"/>
+<rect x="9" y="9" width="305" height="126" rx="5" fill="#14202a"/><path d="M14 9h295a5 5 0 0 1 5 5v12H9V14a5 5 0 0 1 5-5" fill="#2b3540"/>
+<circle cx="19" cy="18" r="3" fill="#ee897d"/>
+<circle cx="30" cy="18" r="3" fill="#eac67f"/>
+<circle cx="41" cy="18" r="3" fill="#94c8a0"/>
+<text x="162" y="21" fill="#c2cbd2" font-size="6" text-anchor="middle">api-server</text><rect x="9" y="26" width="66" height="109" fill="#1d2b35"/>
+<rect x="17" y="36" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="46" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="56" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="66" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="76" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="86" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="96" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="106" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<text x="83" y="38" font-size="5" fill="#5d788c">1</text>
+<rect x="97" y="34" width="65" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="47" font-size="5" fill="#5d788c">2</text>
+<rect x="107" y="43" width="82" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="56" font-size="5" fill="#5d788c">3</text>
+<rect x="117" y="52" width="99" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="65" font-size="5" fill="#5d788c">4</text>
+<rect x="97" y="61" width="116" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="74" font-size="5" fill="#5d788c">5</text>
+<rect x="107" y="70" width="133" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="83" font-size="5" fill="#5d788c">6</text>
+<rect x="117" y="79" width="150" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="92" font-size="5" fill="#5d788c">7</text>
+<rect x="97" y="88" width="167" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="101" font-size="5" fill="#5d788c">8</text>
+<rect x="107" y="97" width="184" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="110" font-size="5" fill="#5d788c">9</text>
+<rect x="117" y="106" width="80" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="119" font-size="5" fill="#5d788c">10</text>
+<rect x="97" y="115" width="97" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<rect x="9" y="130" width="305" height="5" fill="#567163"/><rect x="14" y="151" width="21" height="21" rx="5" fill="#2a4655"/><text x="24.5" y="166" fill="#80c4ef" font-size="13" text-anchor="middle">⌘</text>
+<text x="44" y="164" fill="#e5ede8" font-size="11.5" font-weight="550">routes.ts — api-server</text><text x="44" y="183" fill="#93a79b" font-size="10">Visual Studio Code</text></g>
+<g transform="translate(399 230)"><rect width="323" height="200" rx="11" fill="#21392d" stroke="#9ee7ba" stroke-width="2"/>
+<rect x="9" y="9" width="305" height="126" rx="5" fill="#14202a"/><path d="M14 9h295a5 5 0 0 1 5 5v12H9V14a5 5 0 0 1 5-5" fill="#2b3540"/>
+<circle cx="19" cy="18" r="3" fill="#ee897d"/>
+<circle cx="30" cy="18" r="3" fill="#eac67f"/>
+<circle cx="41" cy="18" r="3" fill="#94c8a0"/>
+<text x="162" y="21" fill="#c2cbd2" font-size="6" text-anchor="middle">web-client</text><rect x="9" y="26" width="66" height="109" fill="#1d2b35"/>
+<rect x="17" y="36" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="46" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="56" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="66" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="76" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="86" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="96" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="106" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<text x="83" y="38" font-size="5" fill="#5d788c">1</text>
+<rect x="97" y="34" width="76" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="47" font-size="5" fill="#5d788c">2</text>
+<rect x="107" y="43" width="93" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="56" font-size="5" fill="#5d788c">3</text>
+<rect x="117" y="52" width="110" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="65" font-size="5" fill="#5d788c">4</text>
+<rect x="97" y="61" width="127" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="74" font-size="5" fill="#5d788c">5</text>
+<rect x="107" y="70" width="144" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="83" font-size="5" fill="#5d788c">6</text>
+<rect x="117" y="79" width="161" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="92" font-size="5" fill="#5d788c">7</text>
+<rect x="97" y="88" width="178" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="101" font-size="5" fill="#5d788c">8</text>
+<rect x="107" y="97" width="74" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="110" font-size="5" fill="#5d788c">9</text>
+<rect x="117" y="106" width="91" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="119" font-size="5" fill="#5d788c">10</text>
+<rect x="97" y="115" width="108" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<rect x="9" y="130" width="305" height="5" fill="#567163"/><rect x="14" y="151" width="21" height="21" rx="5" fill="#2a4655"/><text x="24.5" y="166" fill="#80c4ef" font-size="13" text-anchor="middle">⌘</text>
+<text x="44" y="164" fill="#e5ede8" font-size="11.5" font-weight="550">App.tsx — web-client</text><text x="44" y="183" fill="#93a79b" font-size="10">Visual Studio Code</text></g>
+<g transform="translate(744 230)"><rect width="323" height="200" rx="11" fill="#192422" stroke="#31413b" stroke-width="1"/>
+<rect x="9" y="9" width="305" height="126" rx="5" fill="#14202a"/><path d="M14 9h295a5 5 0 0 1 5 5v12H9V14a5 5 0 0 1 5-5" fill="#2b3540"/>
+<circle cx="19" cy="18" r="3" fill="#ee897d"/>
+<circle cx="30" cy="18" r="3" fill="#eac67f"/>
+<circle cx="41" cy="18" r="3" fill="#94c8a0"/>
+<text x="162" y="21" fill="#c2cbd2" font-size="6" text-anchor="middle">design-system</text><rect x="9" y="26" width="66" height="109" fill="#1d2b35"/>
+<rect x="17" y="36" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="46" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="56" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="66" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="76" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="86" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="96" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="106" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<text x="83" y="38" font-size="5" fill="#5d788c">1</text>
+<rect x="97" y="34" width="87" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="47" font-size="5" fill="#5d788c">2</text>
+<rect x="107" y="43" width="104" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="56" font-size="5" fill="#5d788c">3</text>
+<rect x="117" y="52" width="121" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="65" font-size="5" fill="#5d788c">4</text>
+<rect x="97" y="61" width="138" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="74" font-size="5" fill="#5d788c">5</text>
+<rect x="107" y="70" width="155" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="83" font-size="5" fill="#5d788c">6</text>
+<rect x="117" y="79" width="172" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="92" font-size="5" fill="#5d788c">7</text>
+<rect x="97" y="88" width="68" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="101" font-size="5" fill="#5d788c">8</text>
+<rect x="107" y="97" width="85" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="110" font-size="5" fill="#5d788c">9</text>
+<rect x="117" y="106" width="102" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="119" font-size="5" fill="#5d788c">10</text>
+<rect x="97" y="115" width="119" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<rect x="9" y="130" width="305" height="5" fill="#567163"/><rect x="14" y="151" width="21" height="21" rx="5" fill="#2a4655"/><text x="24.5" y="166" fill="#80c4ef" font-size="13" text-anchor="middle">⌘</text>
+<text x="44" y="164" fill="#e5ede8" font-size="11.5" font-weight="550">Button.tsx — design-system</text><text x="44" y="183" fill="#93a79b" font-size="10">Visual Studio Code</text></g>
+<g transform="translate(54 447)"><rect width="323" height="200" rx="11" fill="#192422" stroke="#31413b" stroke-width="1"/>
+<rect x="9" y="9" width="305" height="126" rx="5" fill="#14202a"/><path d="M14 9h295a5 5 0 0 1 5 5v12H9V14a5 5 0 0 1 5-5" fill="#2b3540"/>
+<circle cx="19" cy="18" r="3" fill="#ee897d"/>
+<circle cx="30" cy="18" r="3" fill="#eac67f"/>
+<circle cx="41" cy="18" r="3" fill="#94c8a0"/>
+<text x="162" y="21" fill="#c2cbd2" font-size="6" text-anchor="middle">mobile-app</text><rect x="9" y="26" width="66" height="109" fill="#1d2b35"/>
+<rect x="17" y="36" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="46" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="56" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="66" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="76" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="86" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="96" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="106" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<text x="83" y="38" font-size="5" fill="#5d788c">1</text>
+<rect x="97" y="34" width="98" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="47" font-size="5" fill="#5d788c">2</text>
+<rect x="107" y="43" width="115" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="56" font-size="5" fill="#5d788c">3</text>
+<rect x="117" y="52" width="132" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="65" font-size="5" fill="#5d788c">4</text>
+<rect x="97" y="61" width="149" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="74" font-size="5" fill="#5d788c">5</text>
+<rect x="107" y="70" width="166" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="83" font-size="5" fill="#5d788c">6</text>
+<rect x="117" y="79" width="183" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="92" font-size="5" fill="#5d788c">7</text>
+<rect x="97" y="88" width="79" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="101" font-size="5" fill="#5d788c">8</text>
+<rect x="107" y="97" width="96" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="110" font-size="5" fill="#5d788c">9</text>
+<rect x="117" y="106" width="113" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="119" font-size="5" fill="#5d788c">10</text>
+<rect x="97" y="115" width="130" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<rect x="9" y="130" width="305" height="5" fill="#567163"/><rect x="14" y="151" width="21" height="21" rx="5" fill="#2a4655"/><text x="24.5" y="166" fill="#80c4ef" font-size="13" text-anchor="middle">⌘</text>
+<text x="44" y="164" fill="#e5ede8" font-size="11.5" font-weight="550">index.ts — mobile-app</text><text x="44" y="183" fill="#93a79b" font-size="10">Visual Studio Code</text></g>
+<g transform="translate(399 447)"><rect width="323" height="200" rx="11" fill="#192422" stroke="#31413b" stroke-width="1"/>
+<rect x="9" y="9" width="305" height="126" rx="5" fill="#14202a"/><path d="M14 9h295a5 5 0 0 1 5 5v12H9V14a5 5 0 0 1 5-5" fill="#2b3540"/>
+<circle cx="19" cy="18" r="3" fill="#ee897d"/>
+<circle cx="30" cy="18" r="3" fill="#eac67f"/>
+<circle cx="41" cy="18" r="3" fill="#94c8a0"/>
+<text x="162" y="21" fill="#c2cbd2" font-size="6" text-anchor="middle">documentation</text><rect x="9" y="26" width="66" height="109" fill="#1d2b35"/>
+<rect x="17" y="36" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="46" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="56" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="66" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="76" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="86" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="96" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="106" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<text x="83" y="38" font-size="5" fill="#5d788c">1</text>
+<rect x="97" y="34" width="109" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="47" font-size="5" fill="#5d788c">2</text>
+<rect x="107" y="43" width="126" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="56" font-size="5" fill="#5d788c">3</text>
+<rect x="117" y="52" width="143" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="65" font-size="5" fill="#5d788c">4</text>
+<rect x="97" y="61" width="160" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="74" font-size="5" fill="#5d788c">5</text>
+<rect x="107" y="70" width="177" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="83" font-size="5" fill="#5d788c">6</text>
+<rect x="117" y="79" width="73" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="92" font-size="5" fill="#5d788c">7</text>
+<rect x="97" y="88" width="90" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="101" font-size="5" fill="#5d788c">8</text>
+<rect x="107" y="97" width="107" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="110" font-size="5" fill="#5d788c">9</text>
+<rect x="117" y="106" width="124" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="119" font-size="5" fill="#5d788c">10</text>
+<rect x="97" y="115" width="141" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<rect x="9" y="130" width="305" height="5" fill="#567163"/><rect x="14" y="151" width="21" height="21" rx="5" fill="#2a4655"/><text x="24.5" y="166" fill="#80c4ef" font-size="13" text-anchor="middle">⌘</text>
+<text x="44" y="164" fill="#e5ede8" font-size="11.5" font-weight="550">getting-started.md — documentation</text><text x="44" y="183" fill="#93a79b" font-size="10">Visual Studio Code</text></g>
+<g transform="translate(744 447)"><rect width="323" height="200" rx="11" fill="#192422" stroke="#31413b" stroke-width="1"/>
+<rect x="9" y="9" width="305" height="126" rx="5" fill="#14202a"/><path d="M14 9h295a5 5 0 0 1 5 5v12H9V14a5 5 0 0 1 5-5" fill="#2b3540"/>
+<circle cx="19" cy="18" r="3" fill="#ee897d"/>
+<circle cx="30" cy="18" r="3" fill="#eac67f"/>
+<circle cx="41" cy="18" r="3" fill="#94c8a0"/>
+<text x="162" y="21" fill="#c2cbd2" font-size="6" text-anchor="middle">playground</text><rect x="9" y="26" width="66" height="109" fill="#1d2b35"/>
+<rect x="17" y="36" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="46" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="56" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="66" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="76" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="25" y="86" width="44" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="17" y="96" width="30" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<rect x="21" y="106" width="37" height="3" rx="1.5" fill="#4f6574" opacity=".65"/>
+<text x="83" y="38" font-size="5" fill="#5d788c">1</text>
+<rect x="97" y="34" width="120" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="47" font-size="5" fill="#5d788c">2</text>
+<rect x="107" y="43" width="137" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="56" font-size="5" fill="#5d788c">3</text>
+<rect x="117" y="52" width="154" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="65" font-size="5" fill="#5d788c">4</text>
+<rect x="97" y="61" width="171" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="74" font-size="5" fill="#5d788c">5</text>
+<rect x="107" y="70" width="67" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="83" font-size="5" fill="#5d788c">6</text>
+<rect x="117" y="79" width="84" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<text x="83" y="92" font-size="5" fill="#5d788c">7</text>
+<rect x="97" y="88" width="101" height="3" rx="1.5" fill="#a2c89c" opacity=".8"/>
+<text x="83" y="101" font-size="5" fill="#5d788c">8</text>
+<rect x="107" y="97" width="118" height="3" rx="1.5" fill="#d8bf92" opacity=".8"/>
+<text x="83" y="110" font-size="5" fill="#5d788c">9</text>
+<rect x="117" y="106" width="135" height="3" rx="1.5" fill="#88b9db" opacity=".8"/>
+<text x="83" y="119" font-size="5" fill="#5d788c">10</text>
+<rect x="97" y="115" width="152" height="3" rx="1.5" fill="#b9a6d8" opacity=".8"/>
+<rect x="9" y="130" width="305" height="5" fill="#567163"/><rect x="14" y="151" width="21" height="21" rx="5" fill="#2a4655"/><text x="24.5" y="166" fill="#80c4ef" font-size="13" text-anchor="middle">⌘</text>
+<text x="44" y="164" fill="#e5ede8" font-size="11.5" font-weight="550">main.swift — playground</text><text x="44" y="183" fill="#93a79b" font-size="10">Visual Studio Code</text></g>
+<line x1="53" y1="680" x2="1067" y2="680" stroke="#2b3d34"/>
+<text x="56" y="708" font-size="13" fill="#9de0b6" font-family="ui-monospace, Menlo, monospace">h ←   j ↓   k ↑   l →</text><text x="1064" y="708" text-anchor="end" font-size="13" fill="#98ada0">Tab 选择     / 搜索     ↵ 切换     esc 关闭</text>
+</g></svg>
