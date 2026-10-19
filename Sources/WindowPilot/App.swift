@@ -41,11 +41,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.isReleasedWhenClosed = false
         panel.isMovableByWindowBackground = true
         panel.hasShadow = true
+        panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.contentView = NSHostingView(rootView: LauncherView(store: store))
-        panel.contentView?.wantsLayer = true
-        panel.contentView?.layer?.cornerRadius = 18
-        panel.contentView?.layer?.masksToBounds = true
+        // Native translucent window material that follows the system light/dark appearance.
+        let material = NSVisualEffectView()
+        material.material = .popover
+        material.blendingMode = .behindWindow
+        material.state = .active
+        material.maskImage = Self.roundedMask(radius: LauncherView.cornerRadius)
+        let host = NSHostingView(rootView: LauncherView(store: store))
+        host.translatesAutoresizingMaskIntoConstraints = false
+        material.addSubview(host)
+        NSLayoutConstraint.activate([
+            host.leadingAnchor.constraint(equalTo: material.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: material.trailingAnchor),
+            host.topAnchor.constraint(equalTo: material.topAnchor),
+            host.bottomAnchor.constraint(equalTo: material.bottomAnchor),
+        ])
+        panel.contentView = material
         panel.delegate = self
         store.dismiss = { [weak self] in self?.hide(restore: false) }
 
@@ -152,6 +165,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func accessibilitySettings() { store.openPermission(false) }
     @objc private func screenSettings() { store.openPermission(true) }
     @objc private func quit() { NSApp.terminate(nil) }
+
+    private static func roundedMask(radius: CGFloat) -> NSImage {
+        let edge = radius * 2 + 1
+        let image = NSImage(size: NSSize(width: edge, height: edge), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         if let hotKey { UnregisterEventHotKey(hotKey) }
