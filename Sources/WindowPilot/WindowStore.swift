@@ -1,7 +1,10 @@
 import AppKit
 import ApplicationServices
+import os
 import ScreenCaptureKit
 import SwiftUI
+
+private let previewLog = Logger(subsystem: "dev.windowpilot.mac", category: "preview")
 
 struct WindowItem: Identifiable {
     let id: CGWindowID
@@ -167,7 +170,19 @@ final class WindowStore: ObservableObject {
             try? await Task.sleep(nanoseconds: 120_000_000)
             for item in items {
                 guard !Task.isCancelled, generation == token else { return }
-                guard thumbnails[item.id] == nil, let window = item.captureWindow else { continue }
+                guard thumbnails[item.id] == nil else { continue }
+                // ScreenCaptureKit only renders windows on the current Space (other windows fail with
+                // -3811), so off-screen windows use the window server's retained backing store instead.
+                guard let window = item.captureWindow, window.isOnScreen else {
+                    let image = await Self.backingStoreImage(item.id)
+                    guard !Task.isCancelled, generation == token else { return }
+                    if let image { thumbnails[item.id] = image; continue }
+                    previewErrors[item.id] = isMinimized(item)
+                        ? "窗口已最小化\n系统不保留最小化窗口的画面，恢复窗口后即可显示预览。"
+                        : "窗口不在当前桌面\n系统未保留该窗口的画面（例如位于已断开的显示器上）。"
+                    previewLog.notice("preview unavailable id=\(item.id) app=\(item.app, privacy: .public) reason=\(self.previewErrors[item.id]?.prefix(8) ?? "", privacy: .public)")
+                    continue
+                }
                 let config = SCStreamConfiguration()
                 config.width = 640
                 config.height = max(1, Int(640 * window.frame.height / max(window.frame.width, 1)))
@@ -181,10 +196,26 @@ final class WindowStore: ObservableObject {
                 } catch {
                     guard !Task.isCancelled, generation == token else { return }
                     let error = error as NSError
-                    previewErrors[item.id] = "\(error.domain) / \(error.code)：\(error.localizedDescription)"
+                    // A visible window that still can't be captured has opted out of screen sharing.
+                    previewErrors[item.id] = "该应用禁止截图\n\(error.domain) / \(error.code)：\(error.localizedDescription)"
+                    previewLog.error("preview failed id=\(item.id) app=\(item.app, privacy: .public) error=\(error.domain, privacy: .public)/\(error.code)")
                 }
             }
         }
+    }
+
+    private func isMinimized(_ item: WindowItem) -> Bool {
+        let (result, elements) = axWindows(item.pid)
+        guard result == .success,
+              let index = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: elements.map(describe)) else { return false }
+        var value: CFTypeRef?
+        AXUIElementCopyAttributeValue(elements[index], kAXMinimizedAttribute as CFString, &value)
+        return (value as? Bool) ?? false
+    }
+
+    private static func backingStoreImage(_ id: CGWindowID) async -> NSImage? {
+        let image = await Task.detached(priority: .userInitiated) { WindowServerCapture.image(of: id) }.value
+        return image.map { NSImage(cgImage: $0, size: .zero) }
     }
 
     func move(dx: Int, dy: Int) {
