@@ -10,6 +10,17 @@ bash build.sh
 
 默认使用临时签名（ad-hoc）。适合一次性本地体验，但修改代码后重新构建可能需要移除旧权限项，再为新构建重新授权。
 
+## 本地固定签名（推荐用于开发）
+
+没有 Apple 开发者证书时，可创建一个仅存在于本机登录钥匙串的自签名身份：
+
+```sh
+bash scripts/create-local-signing-identity.sh   # 只需运行一次
+bash install.sh                                  # 构建、替换 /Applications 中的应用并重新打开
+```
+
+`build.sh` 检测到 `WindowPilot Local Signing` 后会自动使用它，此后每次构建的签名要求都保持为 `identifier "dev.windowpilot.mac" and certificate leaf = H"…"`，重新编译不再需要重新授权。该身份不会被设置为系统信任，首次签名时如钥匙串询问，选择“始终允许”。切换到该身份后，需要最后一次移除旧权限项并重新授权。
+
 ## 使用固定签名身份
 
 如果钥匙串中已有 Apple Development 或 Developer ID Application 证书，可指定身份名称或指纹：
