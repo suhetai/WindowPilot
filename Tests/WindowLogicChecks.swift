@@ -24,6 +24,24 @@ enum WindowLogicChecks {
         precondition(WindowLogic.bestMatch(title: "Closed", frame: b, candidates: [("Other", a)]) == nil)
         precondition(WindowLogic.bestMatch(title: "", frame: b, candidates: [("Different", a), ("Unnamed", b)]) == 1)
         precondition(WindowLogic.bestMatch(title: "", frame: b, candidates: []) == nil)
-        print("PASS: 18 checks — search, aliases, grid navigation, and window matching")
+        let tabA = CGRect(x: 0, y: 0, width: 280, height: 200)
+        let tabB = CGRect(x: 294, y: 0, width: 280, height: 200)
+        let tabC = CGRect(x: 0, y: 216, width: 280, height: 200)
+        precondition(WindowLogic.wormRect(from: tabA, to: tabB, elapsed: 0) == tabA)
+        precondition(WindowLogic.wormRect(from: tabA, to: tabB, elapsed: WindowLogic.wormDuration) == tabB)
+        let stretchedRight = WindowLogic.wormRect(from: tabA, to: tabB, elapsed: 0.15)
+        precondition(stretchedRight.maxX > tabB.maxX - 20 && stretchedRight.minX < tabA.minX + 30, "leading edge first, trailing edge waits")
+        precondition(stretchedRight.height < tabA.height, "squashes across the stretch")
+        let stretchedLeft = WindowLogic.wormRect(from: tabB, to: tabA, elapsed: 0.15)
+        precondition(stretchedLeft.minX < tabA.minX + 20 && stretchedLeft.maxX > tabB.maxX - 30)
+        let stretchedDown = WindowLogic.wormRect(from: tabA, to: tabC, elapsed: 0.15)
+        precondition(stretchedDown.maxY > tabC.maxY - 20 && stretchedDown.minY < tabA.minY + 30)
+        var previousWidth: CGFloat = 0
+        for step in stride(from: 0.22, through: WindowLogic.wormDuration, by: 0.02) {
+            let width = WindowLogic.wormRect(from: tabA, to: tabB, elapsed: step).width
+            precondition(previousWidth == 0 || width <= previousWidth + 0.01, "contracts monotonically once the lead lands")
+            previousWidth = width
+        }
+        print("PASS: 26 checks — search, aliases, grid navigation, window matching, and worm highlight")
     }
 }
