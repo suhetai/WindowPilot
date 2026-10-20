@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LauncherView: View {
     @ObservedObject var store: WindowStore
+    @ObservedObject var settings: AppSettings
     @FocusState private var searchFocused: Bool
     @State private var cardFrames: [CGWindowID: CGRect] = [:]
     @State private var worm = WormHighlight()
@@ -13,7 +14,9 @@ struct LauncherView: View {
     static let cornerRadius: CGFloat = 16
     private static let cardRadius: CGFloat = 12
 
+    /// Only selection mode highlights a card; search mode shows none.
     private var selectedID: CGWindowID? {
+        guard store.navigating else { return nil }
         let results = store.filtered
         return results.indices.contains(store.selected) ? results[store.selected].id : nil
     }
@@ -50,7 +53,7 @@ struct LauncherView: View {
                     } else {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: store.columns), spacing: 12) {
                             ForEach(results) { item in
-                                card(item, selected: results.indices.contains(store.selected) && results[store.selected].id == item.id)
+                                card(item, selected: item.id == selectedID)
                                     .id(item.id)
                                     .background(GeometryReader { geometry in
                                         Color.clear.preference(key: CardFramesKey.self, value: [item.id: geometry.frame(in: .named(Self.gridSpace))])
@@ -103,8 +106,24 @@ struct LauncherView: View {
                 .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
                 .allowsHitTesting(false)
         }
+        .overlay {
+            if let item = store.pendingClose {
+                ZStack {
+                    Color.black.opacity(0.22)
+                        .onTapGesture { store.resolveConfirm(.cancel) }
+                    confirmDialog(item)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .circular))
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: store.pendingClose?.id)
         .onAppear { searchFocused = true }
-        .onChange(of: store.navigating) { _, navigating in searchFocused = !navigating }
+        .onChange(of: store.navigating) { _, navigating in
+            searchFocused = !navigating
+            // Leaving selection mode drops the highlight, so it reappears in place instead of sliding in.
+            if !navigating { worm = WormHighlight() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .launcherDidOpen)) { _ in searchFocused = true }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in store.updatePermissions() }
     }
@@ -128,6 +147,9 @@ struct LauncherView: View {
             Button(action: store.refresh) {
                 Image(systemName: "arrow.clockwise").font(.system(size: 13, weight: .medium))
             }.buttonStyle(.borderless).foregroundStyle(.secondary).help("刷新窗口 · ⌘R")
+            Button { store.openSettings?() } label: {
+                Image(systemName: "gearshape").font(.system(size: 13, weight: .medium))
+            }.buttonStyle(.borderless).foregroundStyle(.secondary).help("设置 · ⌘,")
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
     }
@@ -161,16 +183,63 @@ struct LauncherView: View {
             Spacer()
             if store.navigating {
                 hint(["H", "J", "K", "L"], "移动")
-                hint(["/"], "搜索")
+                hint(["X"], "关闭窗口")
+                hint([settings.selectionKey.display], "搜索")
             } else {
-                hint(["⇥"], "选择")
+                hint([settings.selectionKey.display], "选择")
                 hint(["↑↓←→"], "移动")
             }
             hint(["↩"], "切换")
-            hint(["esc"], "关闭")
+            hint(["esc"], "退出")
         }
         .font(.system(size: 11)).foregroundStyle(.secondary)
         .padding(.horizontal, 16).padding(.vertical, 9)
+    }
+
+    /// Centered, alert-style confirmation. Buttons stack vertically like macOS alerts; Cancel is preselected.
+    private func confirmDialog(_ item: WindowItem) -> some View {
+        VStack(spacing: 12) {
+            if let icon = item.icon { Image(nsImage: icon).resizable().frame(width: 52, height: 52) }
+            VStack(spacing: 4) {
+                Text("关闭此窗口？").font(.system(size: 13, weight: .semibold))
+                Text(item.title.isEmpty ? item.app : "\(item.title)\n\(item.app)")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).lineLimit(3)
+                Text("如有未保存的内容，应用可能会先询问是否保存。")
+                    .font(.system(size: 11)).foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(spacing: 6) {
+                confirmButton("关闭窗口", choice: .close, destructive: true)
+                confirmButton("取消", choice: .cancel, destructive: false)
+            }.padding(.top, 4)
+            HStack(spacing: 10) {
+                hint(["J", "K"], "选择")
+                hint(["↩"], "确认")
+                hint(["esc"], "取消")
+            }.font(.system(size: 10)).foregroundStyle(.secondary)
+        }
+        .padding(20)
+        .frame(width: 280)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+        .shadow(color: .black.opacity(0.25), radius: 24, y: 10)
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+    }
+
+    private func confirmButton(_ title: String, choice: WindowStore.ConfirmChoice, destructive: Bool) -> some View {
+        let active = store.confirmChoice == choice
+        let tint: Color = destructive ? .red : accent
+        return Button { store.resolveConfirm(choice) } label: {
+            Text(title)
+                .font(.system(size: 13, weight: active ? .semibold : .regular))
+                .foregroundStyle(active ? Color.white : (destructive ? Color.red : Color.primary))
+                .frame(maxWidth: .infinity).padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(active ? tint : Color.primary.opacity(0.08)))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// Keyboard shortcut rendered as small keycaps, similar to Spotlight and System Settings.

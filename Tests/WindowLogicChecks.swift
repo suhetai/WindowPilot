@@ -42,6 +42,22 @@ enum WindowLogicChecks {
             precondition(previousWidth == 0 || width <= previousWidth + 0.01, "contracts monotonically once the lead lands")
             previousWidth = width
         }
-        print("PASS: 26 checks — search, aliases, grid navigation, window matching, and worm highlight")
+        precondition(WindowLogic.step(1, by: 1, count: 2) == 1, "confirmation choice does not wrap")
+        precondition(WindowLogic.step(1, by: -1, count: 2) == 0)
+        precondition(WindowLogic.step(0, by: -1, count: 2) == 0)
+        func problem(_ key: UInt16, cmd: Bool = false, opt: Bool = false, ctrl: Bool = false, shift: Bool = false, global: Bool = false) -> String? {
+            WindowLogic.shortcutProblem(keyCode: key, command: cmd, option: opt, control: ctrl, shift: shift, global: global)
+        }
+        precondition(problem(48) == nil, "Tab is the default selection key")
+        precondition(problem(48, shift: true) == nil)
+        precondition(problem(0) != nil, "a plain letter would break typing in search")
+        precondition(problem(0, shift: true) != nil)
+        precondition(problem(0, opt: true) == nil)
+        precondition(problem(15, cmd: true) != nil, "⌘R is refresh")
+        precondition(problem(36) != nil && problem(53, ctrl: true) != nil, "Return and Esc are reserved")
+        precondition(problem(2, cmd: true, global: true) == nil, "⌘D is the default hotkey")
+        precondition(problem(2, global: true) != nil, "a global hotkey needs a modifier")
+        precondition(problem(96, global: true) != nil)
+        print("PASS: 39 checks — search, aliases, grid navigation, window matching, worm highlight, dialog choice, and shortcuts")
     }
 }

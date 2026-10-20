@@ -29,8 +29,13 @@ final class WindowStore: ObservableObject {
     @Published var accessibility = AXIsProcessTrusted()
     @Published var screenRecording = CGPreflightScreenCaptureAccess()
     @Published var previewErrors: [CGWindowID: String] = [:]
+    /// Window awaiting close confirmation; while set, the launcher shows the confirmation dialog.
+    @Published var pendingClose: WindowItem?
+    /// Highlighted dialog button: `ConfirmChoice.close` or `.cancel`.
+    @Published var confirmChoice = ConfirmChoice.cancel
     let columns = 3
     var dismiss: (() -> Void)?
+    var openSettings: (() -> Void)?
     private var refreshTask: Task<Void, Never>?
     private var thumbnailTask: Task<Void, Never>?
     private var generation = UUID()
@@ -218,14 +223,89 @@ final class WindowStore: ObservableObject {
         return image.map { NSImage(cgImage: $0, size: .zero) }
     }
 
+    /// Nothing is highlighted until selection mode starts; the first key press only reveals the highlight.
     func move(dx: Int, dy: Int) {
-        navigating = true
+        guard navigating else { enterSelection(); return }
         selected = WindowLogic.move(index: selected, count: filtered.count, columns: columns, dx: dx, dy: dy)
     }
 
+    func toggleSelection() {
+        if navigating { navigating = false } else { enterSelection() }
+    }
+
+    private func enterSelection() {
+        guard !filtered.isEmpty else { return }
+        selected = WindowLogic.step(selected, by: 0, count: filtered.count)
+        navigating = true
+    }
+
+    /// Return activates the highlighted window; in search mode it first reveals the highlight.
     func selectCurrent() {
+        guard navigating else { enterSelection(); return }
         guard filtered.indices.contains(selected) else { return }
         activate(filtered[selected])
+    }
+
+    // MARK: - Close window
+
+    enum ConfirmChoice: Int { case close = 0, cancel = 1 }
+
+    func requestClose() {
+        guard navigating, filtered.indices.contains(selected) else { return }
+        confirmChoice = .cancel
+        pendingClose = filtered[selected]
+    }
+
+    func moveConfirm(by delta: Int) {
+        confirmChoice = ConfirmChoice(rawValue: WindowLogic.step(confirmChoice.rawValue, by: delta, count: 2)) ?? .cancel
+    }
+
+    func resolveConfirm(_ choice: ConfirmChoice? = nil) {
+        guard let item = pendingClose else { return }
+        pendingClose = nil
+        if (choice ?? confirmChoice) == .close { close(item) }
+    }
+
+    /// Presses the window's close button through Accessibility, then verifies the window really went away
+    /// (apps may keep it open to ask about unsaved changes).
+    private func close(_ item: WindowItem) {
+        let (result, elements) = axWindows(item.pid)
+        guard result == .success else {
+            if result == .apiDisabled { accessibility = false }
+            message = "读取目标窗口失败：AX \(result.rawValue)"
+            return
+        }
+        guard let index = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: elements.map(describe)) else {
+            message = "无法唯一匹配该窗口（可能已关闭或位于其他桌面）。请刷新后重试。"
+            return
+        }
+        var button: CFTypeRef?
+        AXUIElementCopyAttributeValue(elements[index], kAXCloseButtonAttribute as CFString, &button)
+        guard let button, CFGetTypeID(button) == AXUIElementGetTypeID() else {
+            message = "该窗口没有可用的关闭按钮。"
+            return
+        }
+        let pressed = AXUIElementPerformAction(unsafeBitCast(button, to: AXUIElement.self), kAXPressAction as CFString)
+        guard pressed == .success else {
+            message = "关闭窗口失败：AX \(pressed.rawValue)"
+            return
+        }
+        let token = generation
+        Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard generation == token else { return }
+            let open = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? [])
+                .contains { ($0[kCGWindowNumber as String] as? UInt32) == item.id }
+            if open {
+                message = "“\(item.title.isEmpty ? item.app : item.title)”没有关闭，应用可能在询问是否保存，请切换到该窗口处理。"
+                return
+            }
+            windows.removeAll { $0.id == item.id }
+            thumbnails[item.id] = nil
+            previewErrors[item.id] = nil
+            if filtered.isEmpty { navigating = false }
+            selected = WindowLogic.step(selected, by: 0, count: filtered.count)
+        }
     }
 
     func activate(_ item: WindowItem) {
@@ -248,18 +328,27 @@ final class WindowStore: ObservableObject {
             return
         }
         let target = elements[index]
-        AXUIElementSetAttributeValue(target, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
-        let raised = AXUIElementPerformAction(target, kAXRaiseAction as CFString)
-        AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue)
-        AXUIElementSetAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, target)
-        guard raised == .success else {
-            message = "置前目标窗口失败：AX \(raised.rawValue)，请刷新重试。"
-            return
+        // Only touch what needs restoring: unhide() and un-minimizing bring the app's other windows forward too.
+        var minimized: CFTypeRef?
+        AXUIElementCopyAttributeValue(target, kAXMinimizedAttribute as CFString, &minimized)
+        if (minimized as? Bool) == true {
+            AXUIElementSetAttributeValue(target, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
         }
-        app.unhide()
+        if app.isHidden { app.unhide() }
         NSApp.yieldActivation(to: app)
         dismiss?()
-        app.activate(options: [])
+        // Activate the app *for this window* first. Raising or focusing a window through Accessibility while
+        // its app is inactive makes some apps (VS Code/Electron) activate themselves with their previous main
+        // window, which pulls that window forward on another display.
+        if !WindowFocus.focus(pid: item.pid, windowID: item.id) {
+            // Public fallback: make the target main before activating, since activation raises the main window.
+            AXUIElementPerformAction(target, kAXRaiseAction as CFString)
+            AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue)
+            AXUIElementSetAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, target)
+            app.activate(options: [])
+        }
+        AXUIElementPerformAction(target, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, target)
         // Some Electron apps reorder their windows on activation; raise the selected one again.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             AXUIElementPerformAction(target, kAXRaiseAction as CFString)

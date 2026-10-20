@@ -35,6 +35,33 @@ enum WindowLogic {
         return best.0
     }
 
+    /// Moves a choice within `0..<count` without wrapping (used by the confirmation dialog).
+    static func step(_ index: Int, by delta: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return min(max(index + delta, 0), count - 1)
+    }
+
+    // MARK: - Shortcut validation
+
+    /// Return, keypad Enter, Esc, Delete, Forward Delete and the arrows always belong to the launcher.
+    static let reservedKeyCodes: Set<UInt16> = [36, 76, 53, 51, 117, 123, 124, 125, 126]
+    /// Keys that never insert text, so they can be used without a modifier: Tab and F1–F20.
+    static let nonTypingKeyCodes: Set<UInt16> = [48, 122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111,
+                                                 105, 107, 113, 106, 64, 79, 80, 90]
+    /// ⌘A/Z/X/C/V (editing), ⌘R (refresh), ⌘, (settings) and ⌘Q are already taken inside the launcher.
+    static let reservedCommandKeyCodes: Set<UInt16> = [0, 6, 7, 8, 9, 15, 43, 12]
+
+    /// Returns a user-facing reason when a shortcut can't be used, or nil when it is acceptable.
+    /// `global` is the system-wide launcher hotkey; otherwise it is a key handled inside the launcher.
+    static func shortcutProblem(keyCode: UInt16, command: Bool, option: Bool, control: Bool, shift: Bool, global: Bool) -> String? {
+        if reservedKeyCodes.contains(keyCode) { return "该按键已用于面板操作，请换一个" }
+        let primary = command || option || control
+        if global { return primary ? nil : "全局快捷键需要包含 ⌘、⌥ 或 ⌃" }
+        if !primary && !nonTypingKeyCodes.contains(keyCode) { return "该按键会与搜索输入冲突，请搭配 ⌘、⌥ 或 ⌃ 使用" }
+        if command && !option && !control && reservedCommandKeyCodes.contains(keyCode) { return "该快捷键已用于编辑、刷新或设置" }
+        return nil
+    }
+
     // Stretchy-worm highlight: on each axis the edge facing the destination leaves first and lands
     // with a slight overshoot; the far edge waits briefly, then accelerates to catch up.
     static let wormDuration = 0.42

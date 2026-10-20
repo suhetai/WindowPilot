@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="668" viewBox="0 0 1120 668" role="img" aria-labelledby="title desc">
 <title id="title">WindowPilot 窗口搜索界面示意</title>
-<desc id="desc">macOS 原生风格的半透明搜索面板，输入 vscode 后以三列网格展示六个虚构项目的窗口预览；第二张卡片以系统强调色高亮，最小化窗口显示应用图标与说明，底部为键盘提示。</desc>
+<desc id="desc">macOS 原生风格的半透明搜索面板，输入 vscode 后以三列网格展示六个虚构项目的窗口预览；处于选择模式，第二张卡片以系统强调色高亮，最小化窗口显示应用图标与说明，底部为键盘提示。</desc>
 <defs><linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b9c8f2"/><stop offset=".55" stop-color="#d8d3f0"/><stop offset="1" stop-color="#f2d9e4"/></linearGradient><filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="60"/></filter><filter id="panelShadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#1c2340" flood-opacity=".28"/></filter><filter id="thumbShadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="1" stdDeviation="1.6" flood-color="#000" flood-opacity=".22"/></filter><linearGradient id="icon" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#3aa3f5"/><stop offset="1" stop-color="#0b6cc9"/></linearGradient><clipPath id="canvas"><rect width="1120" height="668" rx="24"/></clipPath></defs>
 <g clip-path="url(#canvas)">
 <rect width="1120" height="668" fill="url(#wall)"/>
@@ -11,7 +11,6 @@
 <g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Helvetica Neue', sans-serif">
 <circle cx="69" cy="67" r="7.5" fill="none" stroke="#8e8e93" stroke-width="2"/><path d="M74.5 72.5l6 6" stroke="#8e8e93" stroke-width="2.2" stroke-linecap="round"/>
 <text x="92" y="76" font-size="24" fill="#1d1d1f">vscode</text>
-<rect x="168" y="55" width="2" height="26" rx="1" fill="#007AFF"/>
 <circle cx="1026" cy="68" r="7.5" fill="#000" fill-opacity=".22"/><path d="M1023.4 65.4l5.2 5.2M1028.6 65.4l-5.2 5.2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
 <path d="M1059.6 64.5A6.5 6.5 0 1 0 1060.4 70" fill="none" stroke="#8e8e93" stroke-width="1.8" stroke-linecap="round"/><path d="M1056.4 63.6l3.6 1.2 .6-3.8" fill="none" stroke="#8e8e93" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 <rect x="40" y="96" width="1040" height="1" fill="#000" fill-opacity=".1"/>
@@ -76,13 +75,15 @@
 <text x="40" y="203" font-size="11" fill="#86868b">Code</text>
 </g>
 <rect x="40" y="592" width="1040" height="1" fill="#000" fill-opacity=".1"/>
-<circle cx="61" cy="610" r="4.2" fill="none" stroke="#86868b" stroke-width="1.4"/><path d="M64 613l3 3" stroke="#86868b" stroke-width="1.4" stroke-linecap="round"/><text x="72" y="614" font-size="11" fill="#86868b">搜索模式</text>
-<text x="1042" y="614" font-size="11" fill="#86868b">关闭</text>
+<rect x="56.0" y="605.0" width="2.6" height="2.6" rx=".6" fill="none" stroke="#86868b" stroke-width=".9"/><rect x="59.6" y="605.0" width="2.6" height="2.6" rx=".6" fill="none" stroke="#86868b" stroke-width=".9"/><rect x="63.2" y="605.0" width="2.6" height="2.6" rx=".6" fill="none" stroke="#86868b" stroke-width=".9"/><rect x="56.0" y="608.6" width="2.6" height="2.6" rx=".6" fill="none" stroke="#86868b" stroke-width=".9"/><rect x="59.6" y="608.6" width="2.6" height="2.6" rx=".6" fill="none" stroke="#86868b" stroke-width=".9"/><rect x="63.2" y="608.6" width="2.6" height="2.6" rx=".6" fill="none" stroke="#86868b" stroke-width=".9"/><rect x="56.0" y="612.2" width="2.6" height="2.6" rx=".6" fill="none" stroke="#86868b" stroke-width=".9"/><rect x="59.6" y="612.2" width="2.6" height="2.6" rx=".6" fill="none" stroke="#86868b" stroke-width=".9"/><rect x="63.2" y="612.2" width="2.6" height="2.6" rx=".6" fill="none" stroke="#86868b" stroke-width=".9"/><text x="72" y="614" font-size="11" fill="#86868b">选择模式</text>
+<text x="1042" y="614" font-size="11" fill="#86868b">退出</text>
 <rect x="1010" y="602" width="26" height="16" rx="4" fill="#000" fill-opacity=".07" stroke="#000" stroke-opacity=".12" stroke-width=".5"/><text x="1023.0" y="614" font-size="10" font-weight="500" fill="#3a3a3c" text-anchor="middle">esc</text>
 <text x="974" y="614" font-size="11" fill="#86868b">切换</text>
 <rect x="952" y="602" width="16" height="16" rx="4" fill="#000" fill-opacity=".07" stroke="#000" stroke-opacity=".12" stroke-width=".5"/><text x="960.0" y="614" font-size="10" font-weight="500" fill="#3a3a3c" text-anchor="middle">↩</text>
-<text x="916" y="614" font-size="11" fill="#86868b">移动</text>
-<rect x="866" y="602" width="44" height="16" rx="4" fill="#000" fill-opacity=".07" stroke="#000" stroke-opacity=".12" stroke-width=".5"/><text x="888.0" y="614" font-size="10" font-weight="500" fill="#3a3a3c" text-anchor="middle">↑↓←→</text>
-<text x="830" y="614" font-size="11" fill="#86868b">选择</text>
-<rect x="808" y="602" width="16" height="16" rx="4" fill="#000" fill-opacity=".07" stroke="#000" stroke-opacity=".12" stroke-width=".5"/><text x="816.0" y="614" font-size="10" font-weight="500" fill="#3a3a3c" text-anchor="middle">⇥</text>
+<text x="916" y="614" font-size="11" fill="#86868b">搜索</text>
+<rect x="894" y="602" width="16" height="16" rx="4" fill="#000" fill-opacity=".07" stroke="#000" stroke-opacity=".12" stroke-width=".5"/><text x="902.0" y="614" font-size="10" font-weight="500" fill="#3a3a3c" text-anchor="middle">⇥</text>
+<text x="836" y="614" font-size="11" fill="#86868b">关闭窗口</text>
+<rect x="814" y="602" width="16" height="16" rx="4" fill="#000" fill-opacity=".07" stroke="#000" stroke-opacity=".12" stroke-width=".5"/><text x="822.0" y="614" font-size="10" font-weight="500" fill="#3a3a3c" text-anchor="middle">X</text>
+<text x="778" y="614" font-size="11" fill="#86868b">移动</text>
+<rect x="726" y="602" width="46" height="16" rx="4" fill="#000" fill-opacity=".07" stroke="#000" stroke-opacity=".12" stroke-width=".5"/><text x="749.0" y="614" font-size="10" font-weight="500" fill="#3a3a3c" text-anchor="middle">H J K L</text>
 </g></svg>
