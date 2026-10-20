@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Darwin
 
 /// Captures a window's last rendered backing store through the window server.
@@ -56,5 +57,37 @@ enum WindowServerCapture {
             if high - low > 6 { return false }
         }
         return true
+    }
+}
+
+/// Which Spaces (desktops) each window belongs to, via the private `SLSCopySpacesForWindows`.
+///
+/// Used to tell apart off-screen windows: on another Space (keep), closed-but-kept-alive by apps that hide
+/// their window on close (still assigned to a visible Space, keep out), or helper windows with no Space.
+enum WindowSpaces {
+    private typealias MainConnectionID = @convention(c) () -> Int32
+    private typealias CopySpaces = @convention(c) (Int32, Int32, CFArray) -> Unmanaged<CFArray>?
+
+    private static let skyLight = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY)
+    private static let mainConnectionID: MainConnectionID? = symbol("SLSMainConnectionID")
+    private static let copySpaces: CopySpaces? = symbol("SLSCopySpacesForWindows")
+    /// kSLSSpaceAll: current, other and fullscreen Spaces.
+    private static let allSpaces: Int32 = 7
+
+    private static func symbol<T>(_ name: String) -> T? {
+        guard let skyLight, let pointer = dlsym(skyLight, name) else { return nil }
+        return unsafeBitCast(pointer, to: T.self)
+    }
+
+    /// Space IDs per window, or nil when the private API is unavailable.
+    static func spaces(for windowIDs: [CGWindowID]) -> [CGWindowID: Set<UInt64>]? {
+        guard let mainConnectionID, let copySpaces else { return nil }
+        let connection = mainConnectionID()
+        var result: [CGWindowID: Set<UInt64>] = [:]
+        for id in windowIDs {
+            let array = copySpaces(connection, allSpaces, [NSNumber(value: id)] as CFArray)?.takeRetainedValue()
+            result[id] = Set((array as? [NSNumber] ?? []).map(\.uint64Value))
+        }
+        return result
     }
 }

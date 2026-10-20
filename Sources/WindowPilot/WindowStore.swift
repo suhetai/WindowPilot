@@ -104,7 +104,13 @@ final class WindowStore: ObservableObject {
                                               app: app.localizedName ?? owner.applicationName, bundle: app.bundleIdentifier ?? "",
                                               title: window.title ?? "", frame: window.frame, icon: app.icon, captureWindow: window))
                 }
-                enrichAccessibilityTitles()
+                let minimized = enrichAccessibilityTitles()
+                spaceCache = WindowSpaces.spaces(for: windows.map(\.id))
+                let helpers = windows.filter { isHiddenWindow($0, minimized: minimized) }
+                if !helpers.isEmpty {
+                    previewLog.notice("hid \(helpers.count) helper windows: \(helpers.map { "\($0.id):\($0.app)" }.joined(separator: " "), privacy: .public)")
+                }
+                windows.removeAll { item in helpers.contains { $0.id == item.id } }
                 loading = false
                 scheduleThumbnails()
             } catch {
@@ -143,12 +149,40 @@ final class WindowStore: ObservableObject {
         return (title as? String ?? "", CGRect(origin: point, size: dimensions))
     }
 
-    private func enrichAccessibilityTitles() {
+    /// Off-screen windows that aren't minimized are one of: on another Space (keep), closed by the user but
+    /// kept alive by apps that hide instead of destroying windows (music players, chat apps; still assigned to a
+    /// visible Space), or helper windows such as popups and find bars (no Space, usually untitled).
+    private func isHiddenWindow(_ item: WindowItem, minimized: Set<CGWindowID>) -> Bool {
+        let onScreen: (WindowItem) -> Bool = { $0.captureWindow?.isOnScreen ?? false }
+        guard !onScreen(item), !minimized.contains(item.id) else { return false }
+        // Without Accessibility, minimized windows can't be recognized; only drop untitled ones then.
+        guard accessibility, let spaces = spaceCache else { return item.title.isEmpty }
+        let mine = spaces[item.id] ?? []
+        let visible = Set(windows.filter(onScreen).flatMap { spaces[$0.id] ?? [] })
+        return mine.isEmpty || !mine.isDisjoint(with: visible)
+    }
+
+    private var spaceCache: [CGWindowID: Set<UInt64>]?
+
+    /// Fills missing titles from Accessibility and returns the IDs of windows it reports as minimized.
+    @discardableResult
+    private func enrichAccessibilityTitles() -> Set<CGWindowID> {
+        var minimized = Set<CGWindowID>()
         for pid in Set(windows.map(\.pid)) {
             let (result, elements) = axWindows(pid)
-            if result == .apiDisabled { accessibility = false; return }
+            if result == .apiDisabled { accessibility = false; return minimized }
             guard result == .success else { continue }
             accessibility = true
+            if WindowFocus.canResolveWindowIDs {
+                for element in elements {
+                    guard let id = WindowFocus.windowID(of: element), let index = windows.firstIndex(where: { $0.id == id }) else { continue }
+                    if windows[index].title.isEmpty { windows[index].title = describe(element).0 }
+                    var value: CFTypeRef?
+                    AXUIElementCopyAttributeValue(element, kAXMinimizedAttribute as CFString, &value)
+                    if (value as? Bool) == true { minimized.insert(id) }
+                }
+                continue
+            }
             let candidates = elements.map(describe)
             for index in windows.indices where windows[index].pid == pid && windows[index].title.isEmpty {
                 let item = windows[index]
@@ -157,6 +191,20 @@ final class WindowStore: ObservableObject {
                 }
             }
         }
+        return minimized
+    }
+
+    /// The Accessibility element for exactly this window. With `_AXUIElementGetWindow` available, a missing ID
+    /// means Accessibility doesn't expose the window (another Space or a helper window) — never guess then,
+    /// since closing the wrong window would be destructive. Otherwise fall back to title/frame matching.
+    private func axWindow(for item: WindowItem) -> (AXError, AXUIElement?) {
+        let (result, elements) = axWindows(item.pid)
+        guard result == .success else { return (result, nil) }
+        if WindowFocus.canResolveWindowIDs {
+            return (.success, elements.first { WindowFocus.windowID(of: $0) == item.id })
+        }
+        let index = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: elements.map(describe))
+        return (.success, index.map { elements[$0] })
     }
 
     func stopCapture() {
@@ -210,11 +258,9 @@ final class WindowStore: ObservableObject {
     }
 
     private func isMinimized(_ item: WindowItem) -> Bool {
-        let (result, elements) = axWindows(item.pid)
-        guard result == .success,
-              let index = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: elements.map(describe)) else { return false }
+        guard let element = axWindow(for: item).1 else { return false }
         var value: CFTypeRef?
-        AXUIElementCopyAttributeValue(elements[index], kAXMinimizedAttribute as CFString, &value)
+        AXUIElementCopyAttributeValue(element, kAXMinimizedAttribute as CFString, &value)
         return (value as? Bool) ?? false
     }
 
@@ -269,22 +315,23 @@ final class WindowStore: ObservableObject {
     /// Presses the window's close button through Accessibility, then verifies the window really went away
     /// (apps may keep it open to ask about unsaved changes).
     private func close(_ item: WindowItem) {
-        let (result, elements) = axWindows(item.pid)
+        let (result, element) = axWindow(for: item)
         guard result == .success else {
             if result == .apiDisabled { accessibility = false }
             message = "读取目标窗口失败：AX \(result.rawValue)"
             return
         }
-        guard let index = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: elements.map(describe)) else {
-            message = "无法唯一匹配该窗口（可能已关闭或位于其他桌面）。请刷新后重试。"
+        guard let element else {
+            message = "无法关闭该窗口：系统只允许操作当前桌面中的窗口。请先切换到该窗口所在的桌面，或刷新后重试。"
             return
         }
         var button: CFTypeRef?
-        AXUIElementCopyAttributeValue(elements[index], kAXCloseButtonAttribute as CFString, &button)
+        AXUIElementCopyAttributeValue(element, kAXCloseButtonAttribute as CFString, &button)
         guard let button, CFGetTypeID(button) == AXUIElementGetTypeID() else {
             message = "该窗口没有可用的关闭按钮。"
             return
         }
+        let wasOnScreen = Self.onScreenState(item.id) ?? false
         let pressed = AXUIElementPerformAction(unsafeBitCast(button, to: AXUIElement.self), kAXPressAction as CFString)
         guard pressed == .success else {
             message = "关闭窗口失败：AX \(pressed.rawValue)"
@@ -292,47 +339,70 @@ final class WindowStore: ObservableObject {
         }
         let token = generation
         Task {
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            guard generation == token else { return }
-            let open = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? [])
-                .contains { ($0[kCGWindowNumber as String] as? UInt32) == item.id }
-            if open {
-                message = "“\(item.title.isEmpty ? item.app : item.title)”没有关闭，应用可能在询问是否保存，请切换到该窗口处理。"
-                return
+            // Pressing the close button is all we do (same as clicking the red button). Many apps only hide
+            // the window on close and keep it alive, so "closed" means gone, off screen, or no longer listed
+            // by Accessibility — not necessarily destroyed.
+            for _ in 0..<4 {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                guard generation == token else { return }
+                if isClosed(item, wasOnScreen: wasOnScreen) {
+                    windows.removeAll { $0.id == item.id }
+                    thumbnails[item.id] = nil
+                    previewErrors[item.id] = nil
+                    if filtered.isEmpty { navigating = false }
+                    selected = WindowLogic.step(selected, by: 0, count: filtered.count)
+                    return
+                }
             }
-            windows.removeAll { $0.id == item.id }
-            thumbnails[item.id] = nil
-            previewErrors[item.id] = nil
-            if filtered.isEmpty { navigating = false }
-            selected = WindowLogic.step(selected, by: 0, count: filtered.count)
+            message = "“\(item.title.isEmpty ? item.app : item.title)”仍然打开，应用可能在询问是否保存，请切换到该窗口处理。"
         }
+    }
+
+    private func isClosed(_ item: WindowItem, wasOnScreen: Bool) -> Bool {
+        guard let onScreen = Self.onScreenState(item.id) else { return true }
+        if wasOnScreen && !onScreen { return true }
+        if WindowFocus.canResolveWindowIDs {
+            let (result, elements) = axWindows(item.pid)
+            if result == .success && !elements.contains(where: { WindowFocus.windowID(of: $0) == item.id }) { return true }
+        }
+        return false
+    }
+
+    /// Whether the window is on screen, or nil once the window server no longer has it.
+    private static func onScreenState(_ id: CGWindowID) -> Bool? {
+        let rows = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
+        guard let row = rows.first(where: { ($0[kCGWindowNumber as String] as? UInt32) == id }) else { return nil }
+        return (row[kCGWindowIsOnscreen as String] as? Bool) ?? false
     }
 
     func activate(_ item: WindowItem) {
         let appElement = AXUIElementCreateApplication(item.pid)
         AXUIElementSetMessagingTimeout(appElement, 1.0)
-        let (result, elements) = axWindows(item.pid)
-        guard result == .success else {
-            if result == .apiDisabled { accessibility = false }
-            message = "读取目标窗口失败：AX \(result.rawValue)" + (result == .apiDisabled ? "（系统拒绝当前版本的辅助功能访问）" : "（窗口可能已关闭或应用未响应）")
+        let (result, target) = axWindow(for: item)
+        if result == .apiDisabled {
+            accessibility = false
+            message = "读取目标窗口失败：AX \(result.rawValue)（系统拒绝当前版本的辅助功能访问）"
             return
         }
-        accessibility = true
-        let candidates = elements.map(describe)
-        guard let index = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: candidates) else {
-            message = "无法唯一匹配该窗口（可能已关闭或名称重复）。请刷新后重试。"
+        if result == .success { accessibility = true }
+        // Windows on another Space aren't exposed through Accessibility, but the window server can still
+        // activate them (switching to their Space), so only give up when neither path is available.
+        guard target != nil || WindowFocus.isAvailable else {
+            message = result == .success ? "无法访问该窗口（可能已关闭或位于其他桌面）。请刷新后重试。"
+                                         : "读取目标窗口失败：AX \(result.rawValue)（窗口可能已关闭或应用未响应）"
             return
         }
         guard let app = NSRunningApplication(processIdentifier: item.pid) else {
             message = "目标应用已退出，请刷新窗口列表。"
             return
         }
-        let target = elements[index]
         // Only touch what needs restoring: unhide() and un-minimizing bring the app's other windows forward too.
-        var minimized: CFTypeRef?
-        AXUIElementCopyAttributeValue(target, kAXMinimizedAttribute as CFString, &minimized)
-        if (minimized as? Bool) == true {
-            AXUIElementSetAttributeValue(target, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        if let target {
+            var minimized: CFTypeRef?
+            AXUIElementCopyAttributeValue(target, kAXMinimizedAttribute as CFString, &minimized)
+            if (minimized as? Bool) == true {
+                AXUIElementSetAttributeValue(target, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+            }
         }
         if app.isHidden { app.unhide() }
         NSApp.yieldActivation(to: app)
@@ -340,7 +410,9 @@ final class WindowStore: ObservableObject {
         // Activate the app *for this window* first. Raising or focusing a window through Accessibility while
         // its app is inactive makes some apps (VS Code/Electron) activate themselves with their previous main
         // window, which pulls that window forward on another display.
-        if !WindowFocus.focus(pid: item.pid, windowID: item.id) {
+        let focused = WindowFocus.focus(pid: item.pid, windowID: item.id)
+        guard let target else { return }
+        if !focused {
             // Public fallback: make the target main before activating, since activation raises the main window.
             AXUIElementPerformAction(target, kAXRaiseAction as CFString)
             AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue)

@@ -28,6 +28,8 @@ enum WindowFocus {
         return unsafeBitCast(pointer, to: T.self)
     }
 
+    static var isAvailable: Bool { processForPID != nil && setFrontProcess != nil && postEventRecord != nil }
+
     static func focus(pid: pid_t, windowID: CGWindowID) -> Bool {
         guard let processForPID, let setFrontProcess, let postEventRecord else { return false }
         var psn = ProcessSerialNumber()
@@ -46,5 +48,20 @@ enum WindowFocus {
             _ = record.withUnsafeMutableBufferPointer { postEventRecord(&psn, $0.baseAddress!) }
         }
         return true
+    }
+
+    // MARK: - Accessibility element ↔ window ID
+
+    private typealias GetWindow = @convention(c) (AXUIElement, UnsafeMutablePointer<CGWindowID>) -> AXError
+    /// `_AXUIElementGetWindow` (HIServices) returns the window-server ID of an Accessibility window element,
+    /// which lets us pick exactly the selected window instead of guessing by title and frame.
+    private static let getWindow: GetWindow? = symbol("_AXUIElementGetWindow", in: dlopen(nil, RTLD_LAZY))
+
+    static var canResolveWindowIDs: Bool { getWindow != nil }
+
+    static func windowID(of element: AXUIElement) -> CGWindowID? {
+        guard let getWindow else { return nil }
+        var id: CGWindowID = 0
+        return getWindow(element, &id) == .success && id != 0 ? id : nil
     }
 }
