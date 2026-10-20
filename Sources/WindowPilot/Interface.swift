@@ -55,6 +55,7 @@ struct LauncherView: View {
                             ForEach(results) { item in
                                 card(item, selected: item.id == selectedID)
                                     .id(item.id)
+                                    .onAppear { store.ensureThumbnail(for: item) }
                                     .background(GeometryReader { geometry in
                                         Color.clear.preference(key: CardFramesKey.self, value: [item.id: geometry.frame(in: .named(Self.gridSpace))])
                                     })

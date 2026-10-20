@@ -62,6 +62,14 @@ enum WindowLogicChecks {
         precondition(WindowLogic.splitTitle("● App.tsx — web-client — Visual Studio Code", app: "Code") == ("● App.tsx", "web-client"), "drops the app name")
         precondition(WindowLogic.splitTitle("my-page-title", app: "Google Chrome") == ("my-page-title", nil), "hyphens are not separators")
         precondition(WindowLogic.splitTitle("a – b — c", app: "X") == ("a", "b — c"))
-        print("PASS: 43 checks — search, aliases, grid navigation, window matching, worm highlight, dialog choice, shortcuts, and titles")
+        let ids: [CGWindowID] = Array(1...15)
+        let searchBatches = WindowLogic.thumbnailBatches(ids: ids, loaded: [2, 11], columns: 3, selected: 0, navigating: false)
+        precondition(searchBatches.immediate == [1, 3, 4, 5, 6, 7, 8, 9], "search mode loads only the first 9 visible windows first")
+        precondition(searchBatches.deferred == [10, 12, 13, 14, 15], "remaining windows are deferred in search mode")
+        let selectBatches = WindowLogic.thumbnailBatches(ids: ids, loaded: Set(1...9), columns: 3, selected: 13, navigating: true)
+        precondition(selectBatches.deferred.isEmpty, "selection mode does not defer remaining windows")
+        precondition(selectBatches.immediate.first == 14, "selected window is prioritized first")
+        precondition(Set(selectBatches.immediate) == Set(10...15))
+        print("PASS: 48 checks — search, aliases, grid navigation, window matching, worm highlight, dialog choice, shortcuts, titles, and thumbnail batching")
     }
 }

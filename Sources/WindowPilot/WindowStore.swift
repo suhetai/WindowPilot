@@ -14,16 +14,28 @@ struct WindowItem: Identifiable {
     var title: String
     let frame: CGRect
     let icon: NSImage?
+    var isOnScreen = false
     var captureWindow: SCWindow?
 }
 
 @MainActor
 final class WindowStore: ObservableObject {
-    @Published var query = "" { didSet { selected = 0; scheduleThumbnails() } }
+    @Published var query = "" {
+        didSet {
+            guard query != oldValue else { return }
+            selected = 0
+            scheduleThumbnails(debounce: true)
+        }
+    }
     @Published var windows: [WindowItem] = []
     @Published var thumbnails: [CGWindowID: NSImage] = [:]
     @Published var selected = 0
-    @Published var navigating = false
+    @Published var navigating = false {
+        didSet {
+            guard navigating != oldValue else { return }
+            if navigating { scheduleThumbnails(debounce: false) }
+        }
+    }
     @Published var loading = false
     @Published var message: String?
     @Published var accessibility = AXIsProcessTrusted()
@@ -38,6 +50,8 @@ final class WindowStore: ObservableObject {
     var openSettings: (() -> Void)?
     private var refreshTask: Task<Void, Never>?
     private var thumbnailTask: Task<Void, Never>?
+    private var inFlightCaptures: [CGWindowID: Task<Void, Never>] = [:]
+    private var minimizedIDs = Set<CGWindowID>()
     private var generation = UUID()
 
     var filtered: [WindowItem] {
@@ -56,7 +70,7 @@ final class WindowStore: ObservableObject {
 
     func refresh() {
         refreshTask?.cancel()
-        thumbnailTask?.cancel()
+        cancelCaptures()
         generation = UUID()
         let token = generation
         accessibility = AXIsProcessTrusted()
@@ -65,10 +79,12 @@ final class WindowStore: ObservableObject {
         message = nil
         thumbnails = [:]
         previewErrors = [:]
+        minimizedIDs = []
         selected = 0
         // Metadata fallback lets the permission screen remain useful without a capture grant.
         let rows = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-        windows = rows.compactMap { row in
+        var offScreenIDs = Set<CGWindowID>()
+        var initial = rows.compactMap { row -> WindowItem? in
             guard let pid = row[kCGWindowOwnerPID as String] as? Int32,
                   pid != ProcessInfo.processInfo.processIdentifier,
                   let id = row[kCGWindowNumber as String] as? UInt32,
@@ -77,44 +93,68 @@ final class WindowStore: ObservableObject {
                   let frame = CGRect(dictionaryRepresentation: bounds),
                   frame.width > 100, frame.height > 70,
                   let app = NSRunningApplication(processIdentifier: pid), app.activationPolicy == .regular else { return nil }
+            let onScreen = (row[kCGWindowIsOnscreen as String] as? Bool) == true
+            if !onScreen { offScreenIDs.insert(id) }
             return WindowItem(id: id, pid: pid, app: app.localizedName ?? "Application",
                               bundle: app.bundleIdentifier ?? "", title: row[kCGWindowName as String] as? String ?? "",
-                              frame: frame, icon: app.icon)
+                              frame: frame, icon: app.icon, isOnScreen: onScreen)
         }
-        enrichAccessibilityTitles()
+        let needsTitleIDs = Set(initial.filter(\.title.isEmpty).map(\.id))
+        let offScreenSnapshot = offScreenIDs
+        var pids = Set(initial.filter { needsTitleIDs.contains($0.id) || offScreenSnapshot.contains($0.id) }.map(\.pid))
+        if !accessibility, let first = initial.first?.pid { pids.insert(first) }
+        let axPIDs = pids
         refreshTask = Task {
+            let ax = await Self.queryAccessibility(pids: axPIDs, needsTitleIDs: needsTitleIDs, offScreenIDs: offScreenSnapshot)
+            guard !Task.isCancelled, generation == token else { return }
+            applyAccessibility(ax, to: &initial)
+            minimizedIDs = ax.minimized
+            spaceCache = WindowSpaces.spaces(for: initial.map(\.id))
+            if screenRecording {
+                var fastList = initial
+                let fastHelpers = fastList.filter { isHiddenWindow($0, in: fastList, minimized: ax.minimized) }
+                if !fastHelpers.isEmpty {
+                    previewLog.notice("hid \(fastHelpers.count) helper windows: \(fastHelpers.map { "\($0.id):\($0.app)" }.joined(separator: " "), privacy: .public)")
+                }
+                fastList.removeAll { item in fastHelpers.contains { $0.id == item.id } }
+                windows = fastList
+                loading = false
+                scheduleThumbnails(debounce: false)
+                return
+            }
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
                 guard !Task.isCancelled, generation == token else { return }
                 let captures = Dictionary(uniqueKeysWithValues: content.windows.map { ($0.windowID, $0) })
                 screenRecording = true
-                windows = windows.map { item in
+                var list = initial.map { item in
                     var copy = item
                     copy.captureWindow = captures[item.id]
+                    if let onScreen = captures[item.id]?.isOnScreen { copy.isOnScreen = onScreen }
                     if let title = captures[item.id]?.title, !title.isEmpty { copy.title = title }
                     return copy
                 }
                 // Include windows in other Spaces that CGWindowList may omit.
-                let known = Set(windows.map(\.id))
+                let known = Set(list.map(\.id))
                 for window in content.windows where !known.contains(window.windowID) {
                     guard window.windowLayer == 0, window.frame.width > 100, window.frame.height > 70,
                           let owner = window.owningApplication, owner.processID != ProcessInfo.processInfo.processIdentifier,
                           let app = NSRunningApplication(processIdentifier: owner.processID), app.activationPolicy == .regular else { continue }
-                    windows.append(WindowItem(id: window.windowID, pid: owner.processID,
-                                              app: app.localizedName ?? owner.applicationName, bundle: app.bundleIdentifier ?? "",
-                                              title: window.title ?? "", frame: window.frame, icon: app.icon, captureWindow: window))
+                    list.append(WindowItem(id: window.windowID, pid: owner.processID,
+                                           app: app.localizedName ?? owner.applicationName, bundle: app.bundleIdentifier ?? "",
+                                           title: window.title ?? "", frame: window.frame, icon: app.icon,
+                                           isOnScreen: window.isOnScreen, captureWindow: window))
                 }
-                let minimized = enrichAccessibilityTitles()
-                spaceCache = WindowSpaces.spaces(for: windows.map(\.id))
-                let helpers = windows.filter { isHiddenWindow($0, minimized: minimized) }
-                if !helpers.isEmpty {
-                    previewLog.notice("hid \(helpers.count) helper windows: \(helpers.map { "\($0.id):\($0.app)" }.joined(separator: " "), privacy: .public)")
-                }
-                windows.removeAll { item in helpers.contains { $0.id == item.id } }
+                applyAccessibility(ax, to: &list)
+                spaceCache = WindowSpaces.spaces(for: list.map(\.id))
+                let helpers = list.filter { isHiddenWindow($0, in: list, minimized: ax.minimized) }
+                list.removeAll { item in helpers.contains { $0.id == item.id } }
+                windows = list
                 loading = false
-                scheduleThumbnails()
+                scheduleThumbnails(debounce: false)
             } catch {
                 guard !Task.isCancelled, generation == token else { return }
+                windows = initial
                 loading = false
                 screenRecording = false
                 let error = error as NSError
@@ -131,7 +171,7 @@ final class WindowStore: ObservableObject {
         return (result, value as? [AXUIElement] ?? [])
     }
 
-    private func describe(_ element: AXUIElement) -> (String, CGRect) {
+    nonisolated private static func describe(_ element: AXUIElement) -> (String, CGRect) {
         var title: CFTypeRef?
         var position: CFTypeRef?
         var size: CFTypeRef?
@@ -152,46 +192,89 @@ final class WindowStore: ObservableObject {
     /// Off-screen windows that aren't minimized are one of: on another Space (keep), closed by the user but
     /// kept alive by apps that hide instead of destroying windows (music players, chat apps; still assigned to a
     /// visible Space), or helper windows such as popups and find bars (no Space, usually untitled).
-    private func isHiddenWindow(_ item: WindowItem, minimized: Set<CGWindowID>) -> Bool {
-        let onScreen: (WindowItem) -> Bool = { $0.captureWindow?.isOnScreen ?? false }
+    private func isHiddenWindow(_ item: WindowItem, in list: [WindowItem], minimized: Set<CGWindowID>) -> Bool {
+        let onScreen: (WindowItem) -> Bool = { $0.captureWindow?.isOnScreen ?? $0.isOnScreen }
         guard !onScreen(item), !minimized.contains(item.id) else { return false }
         // Without Accessibility, minimized windows can't be recognized; only drop untitled ones then.
         guard accessibility, let spaces = spaceCache else { return item.title.isEmpty }
         let mine = spaces[item.id] ?? []
-        let visible = Set(windows.filter(onScreen).flatMap { spaces[$0.id] ?? [] })
+        let visible = Set(list.filter(onScreen).flatMap { spaces[$0.id] ?? [] })
         return mine.isEmpty || !mine.isDisjoint(with: visible)
     }
 
     private var spaceCache: [CGWindowID: Set<UInt64>]?
 
-    /// Fills missing titles from Accessibility and returns the IDs of windows it reports as minimized.
-    @discardableResult
-    private func enrichAccessibilityTitles() -> Set<CGWindowID> {
+    private struct AXSnapshot {
+        var anySucceeded = false
+        var apiDisabled = false
         var minimized = Set<CGWindowID>()
-        for pid in Set(windows.map(\.pid)) {
-            let (result, elements) = axWindows(pid)
-            if result == .apiDisabled { accessibility = false; return minimized }
-            guard result == .success else { continue }
-            accessibility = true
-            if WindowFocus.canResolveWindowIDs {
-                for element in elements {
-                    guard let id = WindowFocus.windowID(of: element), let index = windows.firstIndex(where: { $0.id == id }) else { continue }
-                    if windows[index].title.isEmpty { windows[index].title = describe(element).0 }
-                    var value: CFTypeRef?
-                    AXUIElementCopyAttributeValue(element, kAXMinimizedAttribute as CFString, &value)
-                    if (value as? Bool) == true { minimized.insert(id) }
+        var titles: [CGWindowID: String] = [:]
+        var candidates: [pid_t: [(String, CGRect)]] = [:]
+    }
+
+    /// Queries Accessibility off the main actor and in parallel across apps so one slow app can't stall launch.
+    nonisolated private static func queryAccessibility(
+        pids: Set<pid_t>,
+        needsTitleIDs: Set<CGWindowID>,
+        offScreenIDs: Set<CGWindowID>
+    ) async -> AXSnapshot {
+        let canResolve = WindowFocus.canResolveWindowIDs
+        return await withTaskGroup(of: (pid_t, AXError, [CGWindowID: String], Set<CGWindowID>, [(String, CGRect)]).self) { group in
+            for pid in pids {
+                group.addTask {
+                    let app = AXUIElementCreateApplication(pid)
+                    AXUIElementSetMessagingTimeout(app, 0.1)
+                    var raw: CFTypeRef?
+                    let result = AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &raw)
+                    let elements = raw as? [AXUIElement] ?? []
+                    guard result == .success else { return (pid, result, [:], [], []) }
+                    if canResolve {
+                        var titles: [CGWindowID: String] = [:]
+                        var minimized = Set<CGWindowID>()
+                        for element in elements {
+                            AXUIElementSetMessagingTimeout(element, 0.1)
+                            guard let id = WindowFocus.windowID(of: element) else { continue }
+                            if needsTitleIDs.contains(id) {
+                                var title: CFTypeRef?
+                                AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &title)
+                                if let text = title as? String, !text.isEmpty { titles[id] = text }
+                            }
+                            if offScreenIDs.contains(id) {
+                                var value: CFTypeRef?
+                                AXUIElementCopyAttributeValue(element, kAXMinimizedAttribute as CFString, &value)
+                                if (value as? Bool) == true { minimized.insert(id) }
+                            }
+                        }
+                        return (pid, .success, titles, minimized, [])
+                    }
+                    return (pid, .success, [:], [], elements.map(Self.describe))
                 }
-                continue
             }
-            let candidates = elements.map(describe)
-            for index in windows.indices where windows[index].pid == pid && windows[index].title.isEmpty {
-                let item = windows[index]
-                if let match = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: candidates) {
-                    windows[index].title = candidates[match].0
-                }
+            var snapshot = AXSnapshot()
+            for await (pid, result, titles, minimized, candidates) in group {
+                if result == .apiDisabled { snapshot.apiDisabled = true }
+                guard result == .success else { continue }
+                snapshot.anySucceeded = true
+                snapshot.titles.merge(titles) { $1 }
+                snapshot.minimized.formUnion(minimized)
+                if !candidates.isEmpty { snapshot.candidates[pid] = candidates }
+            }
+            return snapshot
+        }
+    }
+
+    private func applyAccessibility(_ ax: AXSnapshot, to list: inout [WindowItem]) {
+        if ax.apiDisabled && !ax.anySucceeded { accessibility = false; return }
+        if ax.anySucceeded { accessibility = true }
+        for index in list.indices where list[index].title.isEmpty {
+            let item = list[index]
+            if let title = ax.titles[item.id], !title.isEmpty {
+                list[index].title = title
+            } else if let candidates = ax.candidates[item.pid],
+                      let match = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: candidates) {
+                list[index].title = candidates[match].0
             }
         }
-        return minimized
     }
 
     /// The Accessibility element for exactly this window. With `_AXUIElementGetWindow` available, a missing ID
@@ -203,62 +286,143 @@ final class WindowStore: ObservableObject {
         if WindowFocus.canResolveWindowIDs {
             return (.success, elements.first { WindowFocus.windowID(of: $0) == item.id })
         }
-        let index = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: elements.map(describe))
+        let index = WindowLogic.bestMatch(title: item.title, frame: item.frame, candidates: elements.map(Self.describe))
         return (.success, index.map { elements[$0] })
     }
 
     func stopCapture() {
         generation = UUID()
         refreshTask?.cancel()
-        thumbnailTask?.cancel()
+        cancelCaptures()
         thumbnails = [:]
     }
 
-    private func scheduleThumbnails() {
+    private func cancelCaptures() {
+        thumbnailTask?.cancel()
+        thumbnailTask = nil
+        for task in inFlightCaptures.values { task.cancel() }
+        inFlightCaptures.removeAll()
+    }
+
+    /// On-demand capture when a card beyond the initial 9 scrolls into the viewport.
+    func ensureThumbnail(for item: WindowItem) {
+        guard !loading, thumbnails[item.id] == nil, previewErrors[item.id] == nil, inFlightCaptures[item.id] == nil else { return }
+        let visible = WindowLogic.viewportCount(columns: columns)
+        guard !filtered.prefix(visible).contains(where: { $0.id == item.id }) else { return }
+        let token = generation
+        Task { await captureThumbnail(for: item, token: token) }
+    }
+
+    /// Captures thumbnails according to the current mode:
+    /// - Search mode (`!navigating`): captures only the first 9 visible cards (with bounded concurrency)
+    ///   and leaves off-screen cards unloaded until the user enters selection mode or scrolls.
+    /// - Selection mode (`navigating`): captures all remaining cards starting from the selected card's
+    ///   neighborhood outward.
+    private func scheduleThumbnails(debounce: Bool = false) {
+        guard !loading else { return }
         thumbnailTask?.cancel()
         let items = filtered
+        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        let loaded = Set(thumbnails.keys).union(previewErrors.keys)
+        let batches = WindowLogic.thumbnailBatches(
+            ids: items.map(\.id),
+            loaded: loaded,
+            columns: columns,
+            selected: selected,
+            navigating: navigating
+        )
+        guard !batches.immediate.isEmpty else { return }
         let token = generation
         thumbnailTask = Task {
-            // Debounce typing and capture only matching windows, one at a time.
-            try? await Task.sleep(nanoseconds: 120_000_000)
-            for item in items {
+            if debounce {
+                try? await Task.sleep(nanoseconds: 75_000_000)
                 guard !Task.isCancelled, generation == token else { return }
-                guard thumbnails[item.id] == nil else { continue }
-                // ScreenCaptureKit only renders windows on the current Space (other windows fail with
-                // -3811), so off-screen windows use the window server's retained backing store instead.
-                guard let window = item.captureWindow, window.isOnScreen else {
-                    let image = await Self.backingStoreImage(item.id)
-                    guard !Task.isCancelled, generation == token else { return }
-                    if let image { thumbnails[item.id] = image; continue }
-                    previewErrors[item.id] = isMinimized(item)
-                        ? "窗口已最小化\n系统不保留最小化窗口的画面，恢复窗口后即可显示预览。"
-                        : "窗口不在当前桌面\n系统未保留该窗口的画面（例如位于已断开的显示器上）。"
-                    previewLog.notice("preview unavailable id=\(item.id) app=\(item.app, privacy: .public) reason=\(self.previewErrors[item.id]?.prefix(8) ?? "", privacy: .public)")
-                    continue
+            }
+            await captureBatch(batches.immediate.compactMap { byID[$0] }, token: token, concurrency: 4)
+        }
+    }
+
+    private func captureBatch(_ items: [WindowItem], token: UUID, concurrency: Int) async {
+        guard !items.isEmpty else { return }
+        await withTaskGroup(of: Void.self) { group in
+            var iterator = items.makeIterator()
+            for _ in 0..<min(concurrency, items.count) {
+                if let item = iterator.next() {
+                    group.addTask { await self.captureThumbnail(for: item, token: token) }
                 }
-                let config = SCStreamConfiguration()
-                config.width = 640
-                config.height = max(1, Int(640 * window.frame.height / max(window.frame.width, 1)))
-                config.showsCursor = false
-                config.scalesToFit = true
-                config.ignoreShadowsSingleWindow = true
-                do {
-                    let cg = try await SCScreenshotManager.captureImage(contentFilter: SCContentFilter(desktopIndependentWindow: window), configuration: config)
-                    guard !Task.isCancelled, generation == token else { return }
-                    thumbnails[item.id] = NSImage(cgImage: cg, size: .zero)
-                } catch {
-                    guard !Task.isCancelled, generation == token else { return }
-                    let error = error as NSError
-                    // A visible window that still can't be captured has opted out of screen sharing.
-                    previewErrors[item.id] = "该应用禁止截图\n\(error.domain) / \(error.code)：\(error.localizedDescription)"
-                    previewLog.error("preview failed id=\(item.id) app=\(item.app, privacy: .public) error=\(error.domain, privacy: .public)/\(error.code)")
+            }
+            while await group.next() != nil {
+                guard !Task.isCancelled, generation == token else {
+                    group.cancelAll()
+                    return
+                }
+                if let item = iterator.next() {
+                    group.addTask { await self.captureThumbnail(for: item, token: token) }
                 }
             }
         }
     }
 
+    private func captureThumbnail(for item: WindowItem, token: UUID) async {
+        guard generation == token, thumbnails[item.id] == nil, previewErrors[item.id] == nil else { return }
+        if let existing = inFlightCaptures[item.id] {
+            await existing.value
+            return
+        }
+        let task = Task { @MainActor in
+            defer { inFlightCaptures[item.id] = nil }
+            // Fast path: read the window server's retained backing store directly by CGWindowID. This works
+            // immediately (before SCShareableContent finishes) and also covers windows on other Spaces.
+            if let image = await Self.backingStoreImage(item.id) {
+                guard !Task.isCancelled, generation == token else { return }
+                thumbnails[item.id] = image
+                return
+            }
+            guard !Task.isCancelled, generation == token else { return }
+            let onScreen = item.captureWindow?.isOnScreen ?? item.isOnScreen
+            guard onScreen else {
+                previewErrors[item.id] = isMinimized(item)
+                    ? "窗口已最小化\n系统不保留最小化窗口的画面，恢复窗口后即可显示预览。"
+                    : "窗口不在当前桌面\n系统未保留该窗口的画面（例如位于已断开的显示器上）。"
+                previewLog.notice("preview unavailable id=\(item.id) app=\(item.app, privacy: .public) reason=\(self.previewErrors[item.id]?.prefix(8) ?? "", privacy: .public)")
+                return
+            }
+            // Wait for SCShareableContent if it hasn't attached SCWindow yet; it will reschedule on completion.
+            let window: SCWindow
+            if let existing = item.captureWindow {
+                window = existing
+            } else if let fetched = try? await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+                .windows.first(where: { $0.windowID == item.id }) {
+                window = fetched
+            } else {
+                previewErrors[item.id] = "该应用禁止截图\n该窗口启用了屏幕共享保护。"
+                return
+            }
+            let config = SCStreamConfiguration()
+            config.width = 640
+            config.height = max(1, Int(640 * window.frame.height / max(window.frame.width, 1)))
+            config.showsCursor = false
+            config.scalesToFit = true
+            config.ignoreShadowsSingleWindow = true
+            do {
+                let cg = try await SCScreenshotManager.captureImage(contentFilter: SCContentFilter(desktopIndependentWindow: window), configuration: config)
+                guard !Task.isCancelled, generation == token else { return }
+                thumbnails[item.id] = NSImage(cgImage: cg, size: .zero)
+            } catch {
+                guard !Task.isCancelled, generation == token else { return }
+                let error = error as NSError
+                // A visible window that still can't be captured has opted out of screen sharing.
+                previewErrors[item.id] = "该应用禁止截图\n\(error.domain) / \(error.code)：\(error.localizedDescription)"
+                previewLog.error("preview failed id=\(item.id) app=\(item.app, privacy: .public) error=\(error.domain, privacy: .public)/\(error.code)")
+            }
+        }
+        inFlightCaptures[item.id] = task
+        await task.value
+    }
+
     private func isMinimized(_ item: WindowItem) -> Bool {
-        guard let element = axWindow(for: item).1 else { return false }
+        if minimizedIDs.contains(item.id) { return true }
+        guard !WindowFocus.canResolveWindowIDs, let element = axWindow(for: item).1 else { return false }
         var value: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXMinimizedAttribute as CFString, &value)
         return (value as? Bool) ?? false
@@ -272,7 +436,15 @@ final class WindowStore: ObservableObject {
     /// Nothing is highlighted until selection mode starts; the first key press only reveals the highlight.
     func move(dx: Int, dy: Int) {
         guard navigating else { enterSelection(); return }
-        selected = WindowLogic.move(index: selected, count: filtered.count, columns: columns, dx: dx, dy: dy)
+        let next = WindowLogic.move(index: selected, count: filtered.count, columns: columns, dx: dx, dy: dy)
+        guard next != selected else { return }
+        selected = next
+        if filtered.indices.contains(next) {
+            let id = filtered[next].id
+            if thumbnails[id] == nil && previewErrors[id] == nil {
+                scheduleThumbnails(debounce: false)
+            }
+        }
     }
 
     func toggleSelection() {

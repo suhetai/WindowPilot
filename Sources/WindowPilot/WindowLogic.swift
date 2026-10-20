@@ -55,6 +55,45 @@ enum WindowLogic {
         return min(max(index + delta, 0), count - 1)
     }
 
+    /// Number of cards visible at once in the 3-row launcher grid.
+    static func viewportCount(columns: Int) -> Int {
+        max(1, columns * 3)
+    }
+
+    /// Splits unloaded window IDs into `(immediate, deferred)`:
+    /// - Search mode (`!navigating`): only the first viewport (9 cards) loads immediately; off-screen cards
+    ///   are deferred so opening and typing stay fast.
+    /// - Selection mode (`navigating`): all unloaded cards become immediate, ordered from the selected card
+    ///   and its surrounding viewport outward.
+    static func thumbnailBatches(
+        ids: [CGWindowID],
+        loaded: Set<CGWindowID>,
+        columns: Int,
+        selected: Int,
+        navigating: Bool
+    ) -> (immediate: [CGWindowID], deferred: [CGWindowID]) {
+        let visible = viewportCount(columns: columns)
+        guard navigating else {
+            let immediate = ids.prefix(visible).filter { !loaded.contains($0) }
+            let deferred = ids.dropFirst(visible).filter { !loaded.contains($0) }
+            return (immediate, deferred)
+        }
+        guard !ids.isEmpty else { return ([], []) }
+        let cols = max(1, columns)
+        let clamped = min(max(selected, 0), ids.count - 1)
+        let rowStart = max(0, (clamped / cols - 1) * cols)
+        let rowEnd = min(ids.count, rowStart + visible)
+        var ordered: [CGWindowID] = []
+        var seen = loaded
+        func append(_ id: CGWindowID) {
+            if seen.insert(id).inserted { ordered.append(id) }
+        }
+        append(ids[clamped])
+        for id in ids[rowStart..<rowEnd] { append(id) }
+        for id in ids { append(id) }
+        return (ordered, [])
+    }
+
     // MARK: - Shortcut validation
 
     /// Return, keypad Enter, Esc, Delete, Forward Delete and the arrows always belong to the launcher.
