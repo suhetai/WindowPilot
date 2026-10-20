@@ -302,12 +302,18 @@ struct LauncherView: View {
             }.frame(height: 142).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             HStack(alignment: .top, spacing: 8) {
                 if let icon = item.icon { Image(nsImage: icon).resizable().frame(width: 20, height: 20).padding(.top, 1) }
+                // One line each, like Finder: document name, then "project · app". Middle truncation keeps
+                // the file extension visible; the full title is in the tooltip.
+                let parts = WindowLogic.splitTitle(item.title, app: item.app)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(item.title.isEmpty ? "未命名窗口" : item.title)
-                        .font(.system(size: 12, weight: .medium)).foregroundStyle(.primary).lineLimit(2)
-                        .frame(height: 30, alignment: .topLeading)
-                    Text(item.app).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(parts.primary.isEmpty ? "未命名窗口" : parts.primary)
+                        .font(.system(size: 12, weight: .medium)).foregroundStyle(.primary)
+                        .lineLimit(1).truncationMode(.middle)
+                    Text(parts.context.map { "\($0) · \(item.app)" } ?? item.app)
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.tail)
                 }
+                .help(item.title)
                 Spacer(minLength: 0)
                 if selected { Image(systemName: "return").font(.system(size: 11, weight: .semibold)).foregroundStyle(accent) }
             }.padding(.horizontal, 4)

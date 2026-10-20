@@ -58,6 +58,10 @@ enum WindowLogicChecks {
         precondition(problem(2, cmd: true, global: true) == nil, "⌘D is the default hotkey")
         precondition(problem(2, global: true) != nil, "a global hotkey needs a modifier")
         precondition(problem(96, global: true) != nil)
-        print("PASS: 39 checks — search, aliases, grid navigation, window matching, worm highlight, dialog choice, and shortcuts")
+        precondition(WindowLogic.splitTitle("Linux 配置 sftp服务.md — astro-cactus-blog", app: "Code") == ("Linux 配置 sftp服务.md", "astro-cactus-blog"))
+        precondition(WindowLogic.splitTitle("● App.tsx — web-client — Visual Studio Code", app: "Code") == ("● App.tsx", "web-client"), "drops the app name")
+        precondition(WindowLogic.splitTitle("my-page-title", app: "Google Chrome") == ("my-page-title", nil), "hyphens are not separators")
+        precondition(WindowLogic.splitTitle("a – b — c", app: "X") == ("a", "b — c"))
+        print("PASS: 43 checks — search, aliases, grid navigation, window matching, worm highlight, dialog choice, shortcuts, and titles")
     }
 }

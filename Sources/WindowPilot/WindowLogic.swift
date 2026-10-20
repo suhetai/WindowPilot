@@ -35,6 +35,20 @@ enum WindowLogic {
         return best.0
     }
 
+    /// Splits a window title such as "routes.ts — api-server" into the document ("routes.ts") and its
+    /// context ("api-server"), so cards can show each on one line. A trailing app name is dropped.
+    /// Only spaced em/en dashes separate parts; hyphens inside names (e.g. "astro-cactus-blog") are kept.
+    static func splitTitle(_ title: String, app: String) -> (primary: String, context: String?) {
+        var parts = title.replacingOccurrences(of: " – ", with: " — ")
+            .components(separatedBy: " — ")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        let appNames = [app, "Visual Studio Code"].map { $0.lowercased() }
+        if parts.count > 1, let last = parts.last, appNames.contains(last.lowercased()) { parts.removeLast() }
+        guard let first = parts.first else { return (title.trimmingCharacters(in: .whitespaces), nil) }
+        return (first, parts.count > 1 ? parts.dropFirst().joined(separator: " — ") : nil)
+    }
+
     /// Moves a choice within `0..<count` without wrapping (used by the confirmation dialog).
     static func step(_ index: Int, by delta: Int, count: Int) -> Int {
         guard count > 0 else { return 0 }
